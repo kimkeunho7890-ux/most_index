@@ -6,12 +6,14 @@ let currentSortCriteria = '합계';
 let currentSortOrder = 'desc';
 let currentFilterColumn = '모델명';
 let currentFilterValue = '';
-let groupSortOrder = 'asc';
+let groupSortOrder = 'asc'; 
 let debounceTimer;
 let detailSortCriteria = '개통일';
 let detailSortOrder = 'desc';
 let currentlyDisplayedData = [];
-
+let globalSortCriteria = '개통일'; // 기본 정렬 기준
+let globalSortOrder = 'desc';   // 기본 정렬 순서 (최신순)
+let currentSearchResults = []; // 현재 검색 결과를 저장할 변수
 
 // 페이지가 로드되면 서버에서 데이터를 가져오는 함수를 바로 실행합니다.
 document.addEventListener('DOMContentLoaded', () => {
@@ -25,13 +27,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// 관리자 비밀번호 확인 함수
+// ✨✨✨ 변경점: 관리자 비밀번호 확인 함수 추가 ✨✨✨
 function promptForAdminPassword() {
     const password = prompt("관리자 비밀번호를 입력하세요:");
     if (password === "2178149594") {
+        // 비밀번호가 맞으면, 브라우저의 임시 저장소에 '인증됨' 표시를 남깁니다.
         sessionStorage.setItem('isAdminAuthenticated', 'true');
+        // 그 후에 관리자 페이지로 이동합니다.
         window.location.href = '/admin.html';
-    } else if (password !== null) {
+    } else if (password !== null) { // 사용자가 '취소'를 누르지 않았을 때만
         alert("비밀번호가 틀렸습니다.");
     }
 }
@@ -43,6 +47,7 @@ function fetchData() {
         .then(response => response.json())
         .then(data => {
             if (!data || data.length === 0) {
+                // ✨✨✨ 변경점: 데이터 없을 시 안내 문구의 링크 수정 ✨✨✨
                 document.getElementById('display-area').innerHTML = 
                     `<p>데이터가 없습니다. <a href="#" onclick="promptForAdminPassword()">관리자 페이지</a>에서 CSV 파일을 업로드해주세요.</p>`;
                 document.getElementById('group-buttons-container').innerHTML = '';
@@ -58,30 +63,21 @@ function fetchData() {
 }
 
 
-// ✨✨✨ 변경점: CSV 다운로드 기능 함수 수정 ✨✨✨
+// (이하 나머지 코드는 이전 답변의 최종본과 동일합니다. 전체를 복사해서 붙여넣으세요.)
+
+// CSV 다운로드 기능 함수
 function downloadCSV() {
     if (currentlyDisplayedData.length === 0) {
         alert("다운로드할 데이터가 없습니다.");
         return;
     }
 
-    // 다운로드할 항목과 순서를 직접 지정합니다.
-    const headersToExport = [
-        '가입번호', '개통일', '고객명', '개통번호', '개통유형', '약정', 
-        '모델명', '일련번호', '요금제', '부가서비스', '당유', '접수코드불일치'
-    ];
-    
-    let csvContent = "\uFEFF" + headersToExport.join(",") + "\n"; // UTF-8 BOM 추가
+    const headers = Object.keys(currentlyDisplayedData[0]);
+    let csvContent = "\uFEFF" + headers.join(",") + "\n";
 
     currentlyDisplayedData.forEach(row => {
-        const values = headersToExport.map(header => {
+        const values = headers.map(header => {
             let value = row[header] === null || row[header] === undefined ? '' : row[header];
-
-            // '가입번호' 열일 경우, 엑셀에서 숫자가 깨지지 않도록 특수 처리합니다.
-            if (header === '가입번호') {
-                return `="${value}"`;
-            }
-            
             if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
                 value = `"${value.replace(/"/g, '""')}"`;
             }
@@ -105,38 +101,64 @@ function downloadCSV() {
 }
 
 
-// 1. 전체 조회 기능
+// 1. 전체 조회 기능 (수정됨)
 function performGlobalSearch() {
     const searchTerm = document.getElementById('global-search-input').value.toLowerCase();
-    const displayArea = document.getElementById('display-area');
-
     if (!searchTerm) {
-        displayArea.innerHTML = '';
+        document.getElementById('display-area').innerHTML = '';
         return;
     }
 
     const searchKeys = ['가입번호', '모델명', '일련번호', '고객명', '개통번호', '판매점명', '담당'];
-    const searchResults = allData.filter(row => {
+    currentSearchResults = allData.filter(row => { // 검색 결과를 전역 변수에 저장
         return searchKeys.some(key => 
             row[key] && row[key].toString().toLowerCase().includes(searchTerm)
         );
     });
 
-    displaySearchResults(searchResults, searchTerm);
+    renderSearchResults(); // 새로운 그리기 함수 호출
 }
 
-function displaySearchResults(results, searchTerm) {
-    currentlyDisplayedData = results;
+// 2. 전체 조회 정렬 기준을 설정하는 새로운 함수 (추가)
+function setGlobalSort(criteria) {
+    if (globalSortCriteria === criteria) {
+        globalSortOrder = globalSortOrder === 'desc' ? 'asc' : 'desc';
+    } else {
+        globalSortCriteria = criteria;
+        globalSortOrder = 'desc';
+    }
+    renderSearchResults(); // 변경된 기준으로 다시 그리기
+}
+
+// 3. 전체 조회 결과를 그리고 정렬하는 새로운 함수 (추가)
+function renderSearchResults() {
+    currentlyDisplayedData = currentSearchResults;
     const displayArea = document.getElementById('display-area');
+    const searchTerm = document.getElementById('global-search-input').value;
+
+    // 정렬 로직 적용
+    currentSearchResults.sort((a, b) => {
+        const valA = a[globalSortCriteria] || '';
+        const valB = b[globalSortCriteria] || '';
+        if (globalSortOrder === 'asc') {
+            return valA.toString().localeCompare(valB.toString());
+        } else {
+            return valB.toString().localeCompare(valA.toString());
+        }
+    });
     
+    const getSortArrow = (columnName) => {
+        return globalSortCriteria === columnName ? (globalSortOrder === 'desc' ? '▼' : '▲') : '';
+    };
+
     let html = `
         <div class="details-header">
-            <h2>'${searchTerm}' 검색 결과 (총 ${results.length}건)</h2>
+            <h2>'${searchTerm}' 검색 결과 (총 ${currentSearchResults.length}건)</h2>
             <button class="btn btn-download" onclick="downloadCSV()">CSV 다운로드</button>
         </div>
     `;
 
-    if (results.length === 0) {
+    if (currentSearchResults.length === 0) {
         html += '<p>일치하는 결과가 없습니다.</p>';
         displayArea.innerHTML = html;
         return;
@@ -144,11 +166,18 @@ function displaySearchResults(results, searchTerm) {
 
     html += `<div class="table-wrapper"><table>
         <tr>
-            <th>가입번호</th><th>그룹</th><th>담당</th><th>판매점명</th><th>개통일</th>
-            <th>고객명</th><th>개통번호</th><th>모델명</th><th>일련번호</th>
+            <th class="sortable" onclick="setGlobalSort('가입번호')">가입번호 ${getSortArrow('가입번호')}</th>
+            <th class="sortable" onclick="setGlobalSort('그룹')">그룹 ${getSortArrow('그룹')}</th>
+            <th class="sortable" onclick="setGlobalSort('담당')">담당 ${getSortArrow('담당')}</th>
+            <th class="sortable" onclick="setGlobalSort('판매점명')">판매점명 ${getSortArrow('판매점명')}</th>
+            <th class="sortable" onclick="setGlobalSort('개통일')">개통일 ${getSortArrow('개통일')}</th>
+            <th class="sortable" onclick="setGlobalSort('고객명')">고객명 ${getSortArrow('고객명')}</th>
+            <th class="sortable" onclick="setGlobalSort('개통번호')">개통번호 ${getSortArrow('개통번호')}</th>
+            <th class="sortable" onclick="setGlobalSort('모델명')">모델명 ${getSortArrow('모델명')}</th>
+            <th class="sortable" onclick="setGlobalSort('일련번호')">일련번호 ${getSortArrow('일련번호')}</th>
         </tr>
     `;
-    results.forEach(row => {
+    currentSearchResults.forEach(row => {
         html += `
             <tr>
                 <td>${row['가입번호'] || ''}</td>
