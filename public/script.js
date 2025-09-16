@@ -260,7 +260,7 @@ function displayGroupDetails(groupName) {
          if (!key) return;
 
          if (!stats[key]) {
-            stats[key] = { '신규': 0, 'MNP': 0, '기변': 0, '2nd': 0, '합계': 0, 'VAS': 0, '고가치(95)': 0, 'VAS모수': 0, '고가치모수': 0, '당유인정': 0, '당유전체': 0 };
+            stats[key] = { '신규': 0, 'MNP': 0, '기변': 0, '2nd': 0, '합계': 0, 'VAS': 0, '고가치(95)': 0, 'VAS모수': 0, '고가치모수': 0, '당유인정': 0, '당유전체': 0, '신모델': 0  };
         }
          stats[key]['신규'] += safeParseInt(row['신규']);
          stats[key]['MNP'] += safeParseInt(row['MNP']);
@@ -270,6 +270,7 @@ function displayGroupDetails(groupName) {
          stats[key]['고가치(95)'] += safeParseFloat(row['고가치(95)']);
          stats[key]['VAS모수'] += safeParseInt(row['VAS모수']);
          stats[key]['고가치모수'] += safeParseInt(row['고가치모수']);
+         stats[key]['신모델'] += safeParseInt(row['신모델']);
          
          if (row['모델유형'] && row['모델유형'].includes('2nd')) {
              stats[key]['2nd'] += 1;
@@ -294,11 +295,11 @@ function displayGroupDetails(groupName) {
          return stats[b]['합계'] - stats[a]['합계'];
      });
      
-     const fields = ['신규', 'MNP', '기변', '2nd', '합계', 'MNP(%)', 'VAS(%)', '고가치(95)(%)', '당유(%)'];
+     const fields = ['신규', 'MNP', '기변', '2nd', '합계', 'MNP(%)', 'VAS(%)', '고가치(95)(%)', '당유(%)', '신모델'];
 
      if (isOverallView) {
         // ✨ 수정된 부분 1: totalStats 객체에 '당유인정', '당유전체' 추가
-         const totalStats = { '신규': 0, 'MNP': 0, '기변': 0, '2nd': 0, '합계': 0, 'VAS': 0, '고가치(95)': 0, 'VAS모수': 0, '고가치모수': 0, '당유인정': 0, '당유전체': 0 };
+         const totalStats = { '신규': 0, 'MNP': 0, '기변': 0, '2nd': 0, '합계': 0, 'VAS': 0, '고가치(95)': 0, 'VAS모수': 0, '고가치모수': 0, '당유인정': 0, '당유전체': 0, '신모델': 0  };
          Object.values(stats).forEach(groupStat => {
              for (const key in totalStats) {
                  totalStats[key] += groupStat[key];
@@ -645,7 +646,6 @@ function renderStoreDetailsTable(page = 1) {
     document.getElementById('filter-column').value = currentFilterColumn;
     document.getElementById('filter-input').value = currentFilterValue;
 }
-
 
 
 
